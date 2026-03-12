@@ -140,4 +140,82 @@ ext = ext[1:]
 strings.TrimPrefix(ext, ".")
 ```
 
-더 안전합니다.
+더 안전함
+
+### 폴더/파일 감시
+
+`for { select { ... } }` 는 채널을 계속 감시하는 이벤트 루프를 만들 때 쓰는 패턴
+
+```go
+func main () {
+
+	fmt.Println("Watching:", downloadDir)
+
+	// create new watcher
+	watcher, err := fsnotify.NewWatcher()
+	checkErr(err)
+	defer watcher.Close()
+
+	go watchFiles(watcher)
+
+	err = watcher.Add(downloadDir)
+	checkErr(err)
+
+	select {} // 프로그램 계속 실행
+}
+
+func watchFiles(watcher *fsnotify.Watcher) {
+
+	for {
+		select {
+		case event, ok := <- watcher.Events:
+			if !ok {
+				return
+			}
+
+			// 파일 생성 감지
+			if event.Has(fsnotify.Create) {
+				moveFile(event.Name)
+			}
+
+		case err, ok := <- watcher.Errors:
+			if !ok {
+				return
+			}
+
+			log.Panicln("watch err:",err)
+		}
+	}
+}
+
+func moveFile(path string) {
+	fileName := filepath.Base(path)
+
+	ext := strings.TrimPrefix(filepath.Ext(fileName), ".")
+	ext = strings.ToLower(ext)
+
+	if ext == "" {
+		return
+	}
+
+	folderType, ok := fileTypes[ext]
+	if !ok {
+		return
+	}
+
+	folderPath := filepath.Join(downloadDir, folderType)
+
+	err := os.MkdirAll(folderPath, 0755)
+	checkErr(err)
+
+	newPath := filepath.Join(folderPath, fileName)
+
+	err = os.Rename(path, newPath)
+	if err != nil {
+		log.Println("move failed:", err)
+		return
+	}
+
+	fmt.Println("Moved:", fileName, "->", folderType)
+}
+```

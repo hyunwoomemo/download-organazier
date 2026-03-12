@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 var downloadDir = os.Getenv("HOME") + "/Downloads"
@@ -46,41 +49,74 @@ func checkErr(err error) {
 }
 
 func main () {
-	fmt.Printf("downloadDir: %v\n", downloadDir)
 
-	files, err := os.ReadDir(downloadDir)
+	fmt.Println("Watching:", downloadDir)
+
+	// create new watcher
+	watcher, err := fsnotify.NewWatcher()
+	checkErr(err)
+	defer watcher.Close()
+
+	go watchFiles(watcher)
+
+	err = watcher.Add(downloadDir)
 	checkErr(err)
 
-	for _, file := range files {
+	select {} // 프로그램 계속 실행
+}
 
-		if file.IsDir() {
-			continue
+func watchFiles(watcher *fsnotify.Watcher) {
+
+	for {
+		select {
+		case event, ok := <- watcher.Events:
+			if !ok {
+				return
+			}
+
+			// 파일 생성 감지
+			if event.Has(fsnotify.Create) {
+				moveFile(event.Name)
+			}
+
+		case err, ok := <- watcher.Errors:
+			if !ok {
+				return
+			}
+
+			log.Panicln("watch err:",err)
 		}
-
-		// 확장자 확인
-		ext := strings.TrimPrefix(filepath.Ext(file.Name()), ".")
-
-		if ext == "" {
-			continue
-		}
-
-		// target 확장자 확인
-		if fileTypes[ext] == "" {
-			continue
-		}
-
-	// 확장자 폴더 생성
-		folderPath := filepath.Join(downloadDir, fileTypes[ext])
-
-		err := os.MkdirAll(folderPath, 0755)
-		checkErr(err)
-
-		oldPath := filepath.Join(downloadDir, file.Name())
-		newPath := filepath.Join(folderPath, file.Name())
-
-		err = os.Rename(oldPath, newPath)
-		checkErr(err)
-
-		fmt.Println(file.Name(), "→", fileTypes[ext])
 	}
+}
+
+func moveFile(path string) {
+	fileName := filepath.Base(path)
+
+	ext := strings.TrimPrefix(filepath.Ext(fileName), ".")
+	ext = strings.ToLower(ext)
+
+	if ext == "" {
+		return
+	}
+
+	folderType, ok := fileTypes[ext]
+	if !ok {
+		return
+	}
+
+	folderPath := filepath.Join(downloadDir, folderType)
+
+	err := os.MkdirAll(folderPath, 0755)
+	checkErr(err)
+
+	newPath := filepath.Join(folderPath, fileName)
+
+	err = os.Rename(path, newPath)
+	if err != nil {
+		log.Println("move failed:", err)
+		return
+	}
+
+	fmt.Println("Moved:", fileName, "->", folderType)
+
 }
