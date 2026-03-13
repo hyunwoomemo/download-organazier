@@ -2,7 +2,7 @@
 
 ## Keyword
 
-`fsnotify`, `os.Getenv`, `os.ReadDir`, `file.IsDir`, `TrimPrefix`, `filepath.Join`, `os.MkdirAll`, `os.Rename`
+`fsnotify`, `os.Getenv`, `os.ReadDir`, `file.IsDir`, `TrimPrefix`, `filepath.Join`, `os.MkdirAll`, `os.Rename`, `wails`
 
 ## Libarary
 
@@ -146,6 +146,8 @@ strings.TrimPrefix(ext, ".")
 
 `for { select { ... } }` 는 채널을 계속 감시하는 이벤트 루프를 만들 때 쓰는 패턴
 
+## 전체 코드
+
 ```go
 func main () {
 
@@ -218,4 +220,14 @@ func moveFile(path string) {
 
 	fmt.Println("Moved:", fileName, "->", folderType)
 }
+```
+
+## 데스크탑 앱
+
+`Go + Wails`
+
+설치
+
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
